@@ -9,7 +9,7 @@ import "strings"
 const reversePEN = 29305
 
 func init() {
-	for k, v := range builtinDictionary {
+	for k, v := range builtinIpfixDictionary {
 		if k.EnterpriseID != 0 {
 			continue
 		}
@@ -35,7 +35,7 @@ func init() {
 			v.Name = "reverse" + strings.ToUpper(v.Name[0:1]) + v.Name[1:]
 			v.EnterpriseID = reversePEN
 			k.EnterpriseID = reversePEN
-			builtinDictionary[k] = v
+			builtinIpfixDictionary[k] = v
 		}
 	}
 }

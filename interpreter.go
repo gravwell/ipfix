@@ -133,7 +133,7 @@ type InterpretedTemplateFieldSpecifier struct {
 
 // NewInterpreter craets a new Interpreter based on the specified Session.
 func NewInterpreter(s *Session) *Interpreter {
-	return &Interpreter{builtinDictionary, s}
+	return &Interpreter{builtinIpfixDictionary, s}
 }
 
 // Interpret a raw DataRecord into a list of InterpretedFields.

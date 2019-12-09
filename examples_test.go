@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/calmh/ipfix"
+	"github.com/floren/ipfix"
 )
 
 func ExampleSession() {

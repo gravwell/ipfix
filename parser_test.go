@@ -7,7 +7,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/calmh/ipfix"
+	"github.com/floren/ipfix"
 )
 
 func TestCanCreateSession(t *testing.T) {
