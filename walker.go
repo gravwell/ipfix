@@ -150,10 +150,12 @@ func (w *Walker) handleDataRecord(mh MessageHeader, sh *setHeader, tpl []Templat
 		if err = sl.Error(); err != nil {
 			return err
 		}
-		if w.filtering && w.f.IsSet(tpl[i].EnterpriseID, tpl[i].FieldID) {
-			if err = w.cb(mh, tpl[i].EnterpriseID, tpl[i].FieldID, val); err != nil {
-				return
-			}
+		if w.filtering && !w.f.IsSet(tpl[i].EnterpriseID, tpl[i].FieldID) {
+			continue //not looking at this item
+		}
+
+		if err = w.cb(mh, tpl[i].EnterpriseID, tpl[i].FieldID, val); err != nil {
+			return
 		}
 	}
 	err = sl.Error()
