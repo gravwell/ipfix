@@ -1,7 +1,71 @@
 package ipfix
 
 var builtinNetflowV9Dictionary = fieldDictionary{
-	// TODO
+	dictionaryKey{0, 1}:  DictionaryEntry{FieldID: 1, Name: "IN_BYTES", Type: FieldTypes["varint"]},
+	dictionaryKey{0, 2}:  DictionaryEntry{FieldID: 2, Name: "IN_PKTS", Type: FieldTypes["varint"]},
+	dictionaryKey{0, 3}:  DictionaryEntry{FieldID: 3, Name: "FLOWS", Type: FieldTypes["varint"]},
+	dictionaryKey{0, 4}:  DictionaryEntry{FieldID: 4, Name: "PROTOCOL", Type: FieldTypes["unsigned8"]},
+	dictionaryKey{0, 5}:  DictionaryEntry{FieldID: 5, Name: "TOS", Type: FieldTypes["unsigned8"]},
+	dictionaryKey{0, 6}:  DictionaryEntry{FieldID: 6, Name: "TCP_FLAGS", Type: FieldTypes["unsigned8"]},
+	dictionaryKey{0, 7}:  DictionaryEntry{FieldID: 7, Name: "L4_SRC_PORT", Type: FieldTypes["unsigned16"]},
+	dictionaryKey{0, 8}:  DictionaryEntry{FieldID: 8, Name: "IPV4_SRC_ADDR", Type: FieldTypes["ipv4Address"]},
+	dictionaryKey{0, 9}:  DictionaryEntry{FieldID: 9, Name: "SRC_MASK", Type: FieldTypes["unsigned8"]},
+	dictionaryKey{0, 10}: DictionaryEntry{FieldID: 10, Name: "INPUT_SNMP", Type: FieldTypes["varint"]},
+	dictionaryKey{0, 11}: DictionaryEntry{FieldID: 11, Name: "L4_DST_PORT", Type: FieldTypes["unsigned16"]},
+	dictionaryKey{0, 12}: DictionaryEntry{FieldID: 12, Name: "IPV4_DST_ADDR", Type: FieldTypes["ipv4Address"]},
+	dictionaryKey{0, 13}: DictionaryEntry{FieldID: 13, Name: "DST_MASK", Type: FieldTypes["unsigned8"]},
+	dictionaryKey{0, 14}: DictionaryEntry{FieldID: 14, Name: "OUTPUT_SNMP", Type: FieldTypes["varint"]},
+	dictionaryKey{0, 15}: DictionaryEntry{FieldID: 15, Name: "IPV4_NEXT_HOP", Type: FieldTypes["ipv4Address"]},
+	dictionaryKey{0, 16}: DictionaryEntry{FieldID: 16, Name: "SRC_AS", Type: FieldTypes["varint"]},
+	dictionaryKey{0, 17}: DictionaryEntry{FieldID: 17, Name: "DST_AS", Type: FieldTypes["varint"]},
+	dictionaryKey{0, 18}: DictionaryEntry{FieldID: 18, Name: "BGP_IPV4_NEXT_HOP", Type: FieldTypes["ipv4Address"]},
+	dictionaryKey{0, 19}: DictionaryEntry{FieldID: 19, Name: "MUL_DST_PKTS", Type: FieldTypes["varint"]},
+	dictionaryKey{0, 20}: DictionaryEntry{FieldID: 20, Name: "MUL_DST_BYTES", Type: FieldTypes["varint"]},
+	dictionaryKey{0, 21}: DictionaryEntry{FieldID: 21, Name: "LAST_SWITCHED", Type: FieldTypes["unsigned32"]},
+	dictionaryKey{0, 22}: DictionaryEntry{FieldID: 22, Name: "FIRST_SWITCHED", Type: FieldTypes["unsigned32"]},
+	dictionaryKey{0, 23}: DictionaryEntry{FieldID: 23, Name: "OUT_BYTES", Type: FieldTypes["varint"]},
+	dictionaryKey{0, 24}: DictionaryEntry{FieldID: 24, Name: "OUT_PKTS", Type: FieldTypes["varint"]},
+	dictionaryKey{0, 27}: DictionaryEntry{FieldID: 27, Name: "IPV6_SRC_ADDR", Type: FieldTypes["ipv6Address"]},
+	dictionaryKey{0, 28}: DictionaryEntry{FieldID: 28, Name: "IPV6_DST_ADDR", Type: FieldTypes["ipv6Address"]},
+	dictionaryKey{0, 29}: DictionaryEntry{FieldID: 29, Name: "IPV6_SRC_MASK", Type: FieldTypes["unsigned8"]},
+	dictionaryKey{0, 30}: DictionaryEntry{FieldID: 30, Name: "IPV6_DST_MASK", Type: FieldTypes["unsigned8"]},
+	dictionaryKey{0, 31}: DictionaryEntry{FieldID: 31, Name: "IPV6_FLOW_LABEL", Type: FieldTypes["unsigned24"]},
+	dictionaryKey{0, 32}: DictionaryEntry{FieldID: 32, Name: "ICMP_TYPE", Type: FieldTypes["unsigned16"]},
+	dictionaryKey{0, 33}: DictionaryEntry{FieldID: 33, Name: "MUL_IGMP_TYPE", Type: FieldTypes["unsigned8"]},
+	dictionaryKey{0, 34}: DictionaryEntry{FieldID: 34, Name: "SAMPLING_INTERVAL", Type: FieldTypes["unsigned32"]},
+	dictionaryKey{0, 35}: DictionaryEntry{FieldID: 35, Name: "SAMPLING_ALGORITHM", Type: FieldTypes["unsigned8"]},
+	dictionaryKey{0, 36}: DictionaryEntry{FieldID: 36, Name: "FLOW_ACTIVE_TIMEOUT", Type: FieldTypes["unsigned16"]},
+	dictionaryKey{0, 37}: DictionaryEntry{FieldID: 37, Name: "FLOW_INACTIVE_TIMEOUT", Type: FieldTypes["unsigned16"]},
+	dictionaryKey{0, 38}: DictionaryEntry{FieldID: 38, Name: "ENGINE_TYPE", Type: FieldTypes["unsigned8"]},
+	dictionaryKey{0, 39}: DictionaryEntry{FieldID: 39, Name: "ENGINE_ID", Type: FieldTypes["unsigned8"]},
+	dictionaryKey{0, 40}: DictionaryEntry{FieldID: 40, Name: "TOTAL_BYTES_EXP", Type: FieldTypes["varint"]},
+	dictionaryKey{0, 41}: DictionaryEntry{FieldID: 41, Name: "TOTAL_PKTS_EXP", Type: FieldTypes["varint"]},
+	dictionaryKey{0, 42}: DictionaryEntry{FieldID: 42, Name: "TOTAL_FLOWS_EXP", Type: FieldTypes["varint"]},
+	dictionaryKey{0, 46}: DictionaryEntry{FieldID: 46, Name: "MPLS_TOP_LABEL_TYPE", Type: FieldTypes["unsigned8"]},
+	dictionaryKey{0, 47}: DictionaryEntry{FieldID: 47, Name: "MPLS_TOP_LABEL_IP_ADDR", Type: FieldTypes["ipv4Address"]},
+	dictionaryKey{0, 48}: DictionaryEntry{FieldID: 48, Name: "FLOW_SAMPLER_ID", Type: FieldTypes["unsigned8"]},
+	dictionaryKey{0, 49}: DictionaryEntry{FieldID: 49, Name: "FLOW_SAMPLER_MODE", Type: FieldTypes["unsigned8"]},
+	dictionaryKey{0, 50}: DictionaryEntry{FieldID: 50, Name: "FLOW_SAMPLER_RANDOM_INTERVAL", Type: FieldTypes["unsigned32"]},
+	dictionaryKey{0, 55}: DictionaryEntry{FieldID: 55, Name: "DST_TOS", Type: FieldTypes["unsigned8"]},
+	dictionaryKey{0, 56}: DictionaryEntry{FieldID: 56, Name: "SRC_MAC", Type: FieldTypes["macAddress"]},
+	dictionaryKey{0, 57}: DictionaryEntry{FieldID: 57, Name: "DST_MAC", Type: FieldTypes["macAddress"]},
+	dictionaryKey{0, 58}: DictionaryEntry{FieldID: 58, Name: "SRC_VLAN", Type: FieldTypes["unsigned16"]},
+	dictionaryKey{0, 59}: DictionaryEntry{FieldID: 59, Name: "DST_VLAN", Type: FieldTypes["unsigned16"]},
+	dictionaryKey{0, 60}: DictionaryEntry{FieldID: 60, Name: "IP_PROTOCOL_VERSION", Type: FieldTypes["unsigned8"]},
+	dictionaryKey{0, 61}: DictionaryEntry{FieldID: 61, Name: "DIRECTION", Type: FieldTypes["unsigned8"]},
+	dictionaryKey{0, 62}: DictionaryEntry{FieldID: 62, Name: "IPV6_NEXT_HOP", Type: FieldTypes["ipv6Address"]},
+	dictionaryKey{0, 63}: DictionaryEntry{FieldID: 63, Name: "BGP_IPV6_NEXT_HOP", Type: FieldTypes["ipv6Address"]},
+	dictionaryKey{0, 64}: DictionaryEntry{FieldID: 64, Name: "IPV6_OPTION_HEADERS", Type: FieldTypes["unsigned32"]},
+	dictionaryKey{0, 70}: DictionaryEntry{FieldID: 70, Name: "MPLS_LABEL_1", Type: FieldTypes["unsigned24"]},
+	dictionaryKey{0, 71}: DictionaryEntry{FieldID: 71, Name: "MPLS_LABEL_2", Type: FieldTypes["unsigned24"]},
+	dictionaryKey{0, 72}: DictionaryEntry{FieldID: 72, Name: "MPLS_LABEL_3", Type: FieldTypes["unsigned24"]},
+	dictionaryKey{0, 73}: DictionaryEntry{FieldID: 73, Name: "MPLS_LABEL_4", Type: FieldTypes["unsigned24"]},
+	dictionaryKey{0, 74}: DictionaryEntry{FieldID: 74, Name: "MPLS_LABEL_5", Type: FieldTypes["unsigned24"]},
+	dictionaryKey{0, 75}: DictionaryEntry{FieldID: 75, Name: "MPLS_LABEL_6", Type: FieldTypes["unsigned24"]},
+	dictionaryKey{0, 76}: DictionaryEntry{FieldID: 76, Name: "MPLS_LABEL_7", Type: FieldTypes["unsigned24"]},
+	dictionaryKey{0, 77}: DictionaryEntry{FieldID: 77, Name: "MPLS_LABEL_8", Type: FieldTypes["unsigned24"]},
+	dictionaryKey{0, 78}: DictionaryEntry{FieldID: 78, Name: "MPLS_LABEL_9", Type: FieldTypes["unsigned24"]},
+	dictionaryKey{0, 79}: DictionaryEntry{FieldID: 79, Name: "MPLS_LABEL_10", Type: FieldTypes["unsigned24"]},
 }
 
 // Autogenerated Thu Mar 12 12:25:55 CET 2015
@@ -453,4 +517,15 @@ func NetflowV9IDLookup(fieldID uint16) (string, bool) {
 		return v.Name, true
 	}
 	return "", false
+}
+
+// LookupAndIdentify looks up the given name, returns an enterprise ID & field ID and a version
+// number for the protocol to which it belongs: 0x09 for Netflow V9, 0x0a for IPFIX.
+// The fourth return value is an "ok" value, indicating if either lookup was successful or not.
+func LookupAndIdentify(name string) (uint32, uint16, uint16, bool) {
+	if field, ok := NetflowV9NameLookup(name); ok {
+		return 0, field, 0x09, true
+	}
+	ent, field, ok := IpfixNameLookup(name)
+	return ent, field, 0xa, ok
 }
