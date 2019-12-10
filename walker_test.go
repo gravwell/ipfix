@@ -1,11 +1,18 @@
 package ipfix
 
 import (
-	//"bytes"
+	"bytes"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"testing"
 )
+
+type cbval struct {
+	eid  uint32
+	fid  uint16
+	data []byte
+}
 
 func TestIPFixWalk(t *testing.T) {
 	//fairly simple ipfix flow record with template in the packet
@@ -15,10 +22,40 @@ func TestIPFixWalk(t *testing.T) {
 	f.SetVersion(10)
 	f.SetDomainID(0)
 
+	//test the first couple flows in the packet
+	testSet := []cbval{
+		cbval{fid: 8, data: []byte{0x7f, 0x00, 0x00, 0x01}},
+		cbval{fid: 12, data: []byte{0x7f, 0x00, 0x00, 0x01}},
+		cbval{fid: 15, data: []byte{0x00, 0x00, 0x00, 0x00}},
+		cbval{fid: 7, data: []byte{0xb5, 0x9f}},
+		cbval{fid: 11, data: []byte{0x08, 0x07}},
+		cbval{fid: 6, data: []byte{0x00}},
+	}
+
+	var cnt int
 	cb := func(mh MessageHeader, eid uint32, fid uint16, buff []byte) error {
 		if eid != 0 {
 			return errors.New("invalid enterprise id")
 		}
+		ft, ok := IPfixIDTypeLookup(eid, fid)
+		if !ok {
+			return fmt.Errorf("Unknown type %d %d", eid, fid)
+		}
+		if len(buff) < ft.minLength() {
+			return fmt.Errorf("Returned buffer is too small for type: %d < %d", len(buff), ft.minLength())
+		}
+		if cnt < len(testSet) {
+			if eid != testSet[cnt].eid {
+				return fmt.Errorf("Flow %d EID bad: %d != %d", cnt, eid, testSet[cnt].eid)
+			}
+			if fid != testSet[cnt].fid {
+				return fmt.Errorf("Flow %d EID bad: %d != %d", cnt, fid, testSet[cnt].fid)
+			}
+			if !bytes.Equal(buff, testSet[cnt].data) {
+				return fmt.Errorf("Bad data: %v != %v", buff, testSet[cnt].data)
+			}
+		}
+		cnt++
 		return nil
 	}
 
@@ -28,5 +65,10 @@ func TestIPFixWalk(t *testing.T) {
 	}
 	if err = w.WalkBuffer(pkt); err != nil {
 		t.Fatal(err)
+	}
+	//check the number of call backs against what is in the packet
+	totalItems := (15*14 + 16*1 + 15*1 + 16*2 + 15*2 + 16*1 + 15*4)
+	if cnt != totalItems {
+		t.Fatalf("invalid count: %d != %d", cnt, totalItems)
 	}
 }
