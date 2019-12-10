@@ -45,19 +45,28 @@ type Message struct {
 // number and domain ID can be used to gain knowledge of messages lost on an
 // unreliable transport such as UDP.
 type MessageHeader struct {
-	Version        uint16 // Always 0x0a
+	Version        uint16 // Always 0x09 or 0x0a
 	Length         uint16
+	SysUptime      uint32 // NetflowV9 only
 	ExportTime     uint32 // Epoch seconds
 	SequenceNumber uint32
-	DomainID       uint32
+	DomainID       uint32 // "source ID" in netflow v9
 }
 
 func (h *MessageHeader) unmarshal(s *slice) {
 	h.Version = s.Uint16()
-	h.Length = s.Uint16()
-	h.ExportTime = s.Uint32()
-	h.SequenceNumber = s.Uint32()
-	h.DomainID = s.Uint32()
+	if h.Version == 0x09 {
+		h.Length = s.Uint16()
+		h.SysUptime = s.Uint32()
+		h.ExportTime = s.Uint32()
+		h.SequenceNumber = s.Uint32()
+		h.DomainID = s.Uint32()
+	} else {
+		h.Length = s.Uint16()
+		h.ExportTime = s.Uint32()
+		h.SequenceNumber = s.Uint32()
+		h.DomainID = s.Uint32()
+	}
 }
 
 type setHeader struct {
@@ -118,6 +127,8 @@ type Session struct {
 
 	withIDAliasing bool
 
+	version uint16
+
 	mut        sync.RWMutex
 	minRecord  map[uint16]uint16
 	signatures map[[sha1.Size]byte]uint16
@@ -156,6 +167,16 @@ const (
 	setHeaderLength = 2 + 2
 )
 
+// Version returns the Netflow/IPFIX version seen in the most recent header.
+// It returns 0x09 for Netflow v9 and 0x0a for IPFIX.
+// It defaults to IPFIX (0x0a) if no messages have been parsed yet.
+func (s *Session) Version() uint16 {
+	if s.version == 0x09 {
+		return 0x09
+	}
+	return 0x0a
+}
+
 // ParseReader extracts and returns one message from the IPFIX stream. As long
 // as err is nil, further messages can be read from the stream. Errors are not
 // recoverable -- once an error has been returned, ParseReader should not be
@@ -187,6 +208,8 @@ func (s *Session) ParseBuffer(bs []byte) (Message, error) {
 	sl := newSlice(bs)
 	msg.Header.unmarshal(sl)
 	msg.TemplateRecords, msg.DataRecords, err = s.readBuffer(sl)
+	// Set the version to the last-seen value
+	sl.version = msg.Header.Version
 	return msg, err
 }
 
@@ -286,12 +309,21 @@ func (s *Session) readSet(setHdr setHeader, sl *slice) ([]TemplateRecord, []Data
 		// historical reasons [RFC3954].
 
 		switch {
-		case setHdr.SetID < 2:
-			// Unused, shouldn't happen
+		case setHdr.SetID == 0:
+			// Template Set
 			if debug {
-				dl.Println("bad SetID", setHdr.SetID)
+				dl.Println("parsing NFv9 template set")
 			}
-			return nil, nil, ErrProtocol
+			tr := s.readTemplateRecord(sl)
+			s.registerTemplateRecord(&tr)
+			trecs = append(trecs, tr)
+
+		case setHdr.SetID == 1:
+			// Options Template Set, not handled
+			if debug {
+				dl.Println("skipping NFv9 option template set")
+			}
+			sl.Cut(sl.Len())
 
 		case setHdr.SetID == 2:
 			// Template Set
