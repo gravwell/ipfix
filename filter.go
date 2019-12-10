@@ -5,8 +5,10 @@ import (
 )
 
 type HeaderFilter struct {
-	Version  uint16 //v9 or v10
-	DomainID uint32
+	Version       uint16 //v9 or v10
+	versionActive bool
+	DomainID      uint32
+	domainActive  bool
 }
 
 type otherFilter struct {
@@ -17,12 +19,41 @@ type otherFilter struct {
 type Filter struct {
 	HeaderFilter
 	uint16Bitmask
-	others []otherFilter
+	baseEnabled bool
+	others      []otherFilter
+}
+
+func (f *Filter) SetVersion(v uint16) {
+	f.versionActive = true
+	f.Version = v
+}
+
+func (f *Filter) ClearVersion() {
+	f.versionActive = false
+}
+
+func (f *Filter) SetDomainID(v uint32) {
+	f.domainActive = true
+	f.DomainID = v
+}
+
+func (f *Filter) ClearDomainID() {
+	f.domainActive = false
+}
+
+func (f *Filter) FilterHeader(did uint32, ver uint16) bool {
+	if f.domainActive && f.DomainID != did {
+		return true
+	} else if f.versionActive && f.Version != ver {
+		return true
+	}
+	return false
 }
 
 func (f *Filter) Set(eid uint32, id uint16) {
 	if eid == 0 {
 		f.set(id)
+		f.baseEnabled = true
 		return
 	} else {
 		for i := range f.others {
@@ -40,6 +71,9 @@ func (f *Filter) Set(eid uint32, id uint16) {
 
 func (f *Filter) IsSet(eid uint32, id uint16) bool {
 	if eid == 0 {
+		if !f.baseEnabled {
+			return true
+		}
 		return f.isset(id)
 	} else {
 		for i := range f.others {
@@ -48,8 +82,8 @@ func (f *Filter) IsSet(eid uint32, id uint16) bool {
 			}
 		}
 	}
-	//didn't find it at all
-	return false
+	//filter not set for this eid
+	return true
 }
 
 func (f *Filter) Clear(eid uint32, id uint16) {
