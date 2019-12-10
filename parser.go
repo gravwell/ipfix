@@ -9,6 +9,11 @@ import (
 	"sync"
 )
 
+const (
+	ipfixVersion uint16 = 10
+	nfv9Version  uint16 = 9
+)
+
 // The version field in IPFIX messages should always have the value 10. If it
 // does not, you get this error. It's probably a sign of a bug in the parser or
 // the exporter and that we have lost synchronization with the data stream.
@@ -50,7 +55,7 @@ type MessageHeader struct {
 
 func (h *MessageHeader) unmarshal(s *slice) {
 	h.Version = s.Uint16()
-	if h.Version == 0x09 {
+	if h.Version == nfv9Version {
 		h.Length = s.Uint16()
 		h.SysUptime = s.Uint32()
 		h.ExportTime = s.Uint32()

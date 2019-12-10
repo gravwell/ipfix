@@ -496,6 +496,16 @@ func IpfixIDLookup(enterpriseID uint32, fieldID uint16) (string, bool) {
 	return "", false
 }
 
+// IPfixIDTypeLookup looks up the type corresponding to the specified enterprised ID and field
+func IPfixIDTypeLookup(enterpriseID uint32, fieldID uint16) (ft FieldType, ok bool) {
+	key := dictionaryKey{enterpriseID, fieldID}
+	var de DictionaryEntry
+	if de, ok = builtinIpfixDictionary[key]; ok {
+		ft = de.Type
+	}
+	return
+}
+
 // NetflowV9NameLookup looks in the built-in Netflow v9 dictionary for an entry matching the given
 // name, returning the corresponding field ID and 'true' if found / 'false' if not found.
 // e.g. calling with "FLOWS" would return 3, true.
