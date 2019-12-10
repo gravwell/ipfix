@@ -3,6 +3,7 @@ package ipfix
 import (
 	"crypto/md5"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"math"
 	"net"
@@ -26,6 +27,7 @@ const (
 	Uint8
 	Uint16
 	Uint32
+	Uint24
 	Uint64
 	Int8
 	Int16
@@ -43,6 +45,7 @@ const (
 	DateTimeNanoseconds
 	Ipv4Address
 	Ipv6Address
+	VarInt
 )
 
 // FieldTypes maps string representations of field types into their
@@ -50,6 +53,7 @@ const (
 var FieldTypes = map[string]FieldType{
 	"unsigned8":            Uint8,
 	"unsigned16":           Uint16,
+	"unsigned24":           Uint24,
 	"unsigned32":           Uint32,
 	"unsigned64":           Uint64,
 	"signed8":              Int8,
@@ -68,12 +72,13 @@ var FieldTypes = map[string]FieldType{
 	"dateTimeNanoseconds":  DateTimeNanoseconds,
 	"ipv4Address":          Ipv4Address,
 	"ipv6Address":          Ipv6Address,
+	"varint":               VarInt,
 }
 
 // minLength is the minimum length of a field of the given type, in bytes.
 func (t FieldType) minLength() int {
 	switch t {
-	case Uint8, Int8, Boolean, Uint16, Int16, Uint32, Int32, Uint64, Int64:
+	case Uint8, Int8, Boolean, Uint16, Int16, Uint24, Uint32, Int32, Uint64, Int64:
 		return 1 // all integers can be reduced-size encoded
 	case Float32, DateTimeSeconds:
 		return 4
@@ -85,6 +90,8 @@ func (t FieldType) minLength() int {
 		return 4
 	case Ipv6Address:
 		return 16
+	case VarInt:
+		return 1
 	default:
 		return 0
 	}
@@ -132,8 +139,23 @@ type InterpretedTemplateFieldSpecifier struct {
 }
 
 // NewInterpreter craets a new Interpreter based on the specified Session.
+// It will attempt to use the appropriate dictionary (IPFIX or NFv9) based
+// on the Session's most-recently parsed message.
 func NewInterpreter(s *Session) *Interpreter {
+	if s.Version() == 0x09 {
+		return &Interpreter{builtinNetflowV9Dictionary, s}
+	}
 	return &Interpreter{builtinIpfixDictionary, s}
+}
+
+func NewInterpreterVersion(s *Session, v uint16) (*Interpreter, error) {
+	if v == 0x09 {
+		return &Interpreter{builtinNetflowV9Dictionary, s}, nil
+	} else if v == 0x0a {
+		return &Interpreter{builtinIpfixDictionary, s}, nil
+	} else {
+		return nil, errors.New("Invalid version")
+	}
 }
 
 // Interpret a raw DataRecord into a list of InterpretedFields.
@@ -213,6 +235,8 @@ func interpretBytes(bs *[]byte, t FieldType) interface{} {
 		return uint8(number(*bs))
 	case Uint16:
 		return uint16(number(*bs))
+	case Uint24:
+		return uint32(number(*bs))
 	case Uint32:
 		return uint32(number(*bs))
 	case Uint64:
@@ -246,6 +270,8 @@ func interpretBytes(bs *[]byte, t FieldType) interface{} {
 	case DateTimeNanoseconds:
 		unixTimeNs := int64(binary.BigEndian.Uint64(*bs))
 		return time.Unix(0, 0).Add(time.Duration(unixTimeNs))
+	case VarInt:
+		return uint64(number(*bs))
 	}
 	return *bs
 }
@@ -256,11 +282,24 @@ func number(bs []byte) uint64 {
 		return uint64(bs[0])
 	case 2:
 		return uint64(binary.BigEndian.Uint16(bs))
+	case 3:
+		return uint64(bs[0])<<16 | uint64(bs[1])<<8 | uint64(bs[2])
 	case 4:
 		return uint64(binary.BigEndian.Uint32(bs))
 	case 8:
 		return uint64(binary.BigEndian.Uint64(bs))
 	default:
+		return bigEndianVarint(bs)
+	}
+}
+
+func bigEndianVarint(v []byte) uint64 {
+	if len(v) > 8 {
 		return 0
 	}
+	var ret uint64
+	for i := range v {
+		ret = ret | uint64(v[i])<<((len(v)-1-i)*8)
+	}
+	return ret
 }

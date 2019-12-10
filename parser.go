@@ -177,7 +177,7 @@ func (s *Session) Version() uint16 {
 // recoverable -- once an error has been returned, ParseReader should not be
 // called again on the same session.
 //
-// Deprecated: use ParseBuffer instead.
+// Deprecated: use ParseBuffer instead. ParseReader does not support Netflow v9
 func (s *Session) ParseReader(r io.Reader) (Message, error) {
 	bs := s.buffers.Get().([]byte)
 	bs, hdr, err := Read(r, bs)
@@ -194,8 +194,8 @@ func (s *Session) ParseReader(r io.Reader) (Message, error) {
 	return msg, err
 }
 
-// ParseBuffer extracts one message from the given buffer and returns it. Err
-// is nil if the buffer could be parsed correctly. ParseBuffer is goroutine safe.
+// ParseBuffer extracts one message (IPFIX or Netflow V9) from the given buffer and returns it.
+// Err is nil if the buffer could be parsed correctly. ParseBuffer is goroutine safe.
 func (s *Session) ParseBuffer(bs []byte) (Message, error) {
 	var msg Message
 	var err error
@@ -204,7 +204,7 @@ func (s *Session) ParseBuffer(bs []byte) (Message, error) {
 	msg.Header.unmarshal(sl)
 	msg.TemplateRecords, msg.DataRecords, err = s.readBuffer(sl)
 	// Set the version to the last-seen value
-	sl.version = msg.Header.Version
+	s.version = msg.Header.Version
 	return msg, err
 }
 
