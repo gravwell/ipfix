@@ -1,2 +1,8 @@
+github.com/calmh/ipfix v1.3.0 h1:qfnATzkj3y4mIJwC6v8hEcNrYlZwk0h0TJhh3hIk2+A=
+github.com/calmh/ipfix v1.3.0/go.mod h1:SAUw1QFQJRwoTnbJARdtKeAk3qCXWOAZekmgd3VKp70=
 github.com/floren/ipfix v1.3.0 h1:0JuuH82mQL60aeRN+/n2ANRI9YfBpr84uHK2otWnQbM=
 github.com/floren/ipfix v1.3.0/go.mod h1:mcz4MiSVWP7j4yQBD4rYvPwo7sH+9eL0YmOb08DsXKk=
+gopkg.in/gcfg.v1 v1.2.3 h1:m8OOJ4ccYHnx2f4gQwpno8nAX5OGOh7RLaaz0pj3Ogs=
+gopkg.in/gcfg.v1 v1.2.3/go.mod h1:yesOnuUOFQAhST5vPY4nbZsb/huCgGGXlipJsBn0b3o=
+gopkg.in/warnings.v0 v0.1.2 h1:wFXVbFY8DY5/xOe1ECiWdKCzZlxgshcYVNkBHstARME=
+gopkg.in/warnings.v0 v0.1.2/go.mod h1:jksf8JmL6Qr/oQM2OXTHunEvvTAsrWBLb6OOjuVWRNI=
