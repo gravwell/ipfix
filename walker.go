@@ -5,12 +5,18 @@ import (
 	"io"
 )
 
+var (
+	ErrNilCallback = errors.New("nil callback")
+)
+
 type RecordCallback func(*Record, uint32, uint16, []byte) error
 
 type Record struct {
 	MessageHeader
 	SetID        int
 	DataRecordID int
+	EndOfRecord  bool
+	Err          error
 }
 
 type Walker struct {
@@ -21,11 +27,7 @@ type Walker struct {
 	fidbuf    []TemplateFieldSpecifier
 }
 
-func NewWalker(f *Filter, cb RecordCallback, trbufsize, fidbufsize int) (w *Walker, err error) {
-	if cb == nil {
-		err = errors.New("nil callback")
-		return
-	}
+func NewWalker(f *Filter, trbufsize, fidbufsize int) (w *Walker, err error) {
 	if trbufsize <= 0 {
 		trbufsize = 32
 	}
@@ -33,7 +35,6 @@ func NewWalker(f *Filter, cb RecordCallback, trbufsize, fidbufsize int) (w *Walk
 		fidbufsize = 1024
 	}
 	w = &Walker{
-		cb:        cb,
 		f:         f,
 		filtering: f != nil,
 		trbuf:     make([]TemplateRecord, 0, trbufsize),          //eeeh, sure
@@ -42,8 +43,14 @@ func NewWalker(f *Filter, cb RecordCallback, trbufsize, fidbufsize int) (w *Walk
 	return
 }
 
-func (w *Walker) WalkBuffer(buf []byte) (err error) {
+func (w *Walker) WalkBuffer(buf []byte, cb RecordCallback) (err error) {
 	var r Record
+	if cb == nil {
+		err = ErrNilCallback
+		return
+	}
+	w.cb = cb
+
 	sl := slice{bs: buf}
 	r.MessageHeader.unmarshal(&sl)
 	if w.filtering && w.f.FilterHeader(r.DomainID, r.Version) {
@@ -151,6 +158,12 @@ func (w *Walker) handleDataRecord(r *Record, sh *setHeader, tpl []TemplateFieldS
 	var val []byte
 	var l int
 	var lo uint8
+	var hit bool
+
+	//reset the record items
+	r.Err = nil
+	r.EndOfRecord = false
+
 	for i := range tpl {
 		if tpl[i].Length == 0xffff {
 			if lo = sl.Uint8(); lo < 0xff {
@@ -168,12 +181,17 @@ func (w *Walker) handleDataRecord(r *Record, sh *setHeader, tpl []TemplateFieldS
 		if w.filtering && !w.f.IsSet(tpl[i].EnterpriseID, tpl[i].FieldID) {
 			continue //not looking at this item
 		}
-
+		hit = true
 		if err = w.cb(r, tpl[i].EnterpriseID, tpl[i].FieldID, val); err != nil {
 			return
 		}
 	}
 	err = sl.Error()
+	if hit {
+		r.Err = err
+		r.EndOfRecord = true
+		w.cb(r, 0, 0, nil)
+	}
 	return
 }
 
@@ -266,7 +284,7 @@ func (w *Walker) walkNfv9Buffer(sl *slice, r *Record) (err error) {
 func (w *Walker) walkNFv9Set(r *Record, sh *setHeader, sl *slice) (err error) {
 	var tmpl TemplateRecord
 	var ok bool
-  r.DataRecordID = 0
+	r.DataRecordID = 0
 	var minLen uint16
 
 	for sl.Len() > 0 && sl.Error() == nil {

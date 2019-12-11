@@ -70,11 +70,11 @@ func TestIPFixWalk(t *testing.T) {
 		return nil
 	}
 
-	w, err := NewWalker(&f, cb, 16, 1024)
+	w, err := NewWalker(&f, 16, 1024)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = w.WalkBuffer(walkerPkt); err != nil {
+	if err = w.WalkBuffer(walkerPkt, cb); err != nil {
 		t.Fatal(err)
 	}
 	//check the number of call backs against what is in the packet
@@ -93,6 +93,9 @@ func TestIPFixWalkFilter(t *testing.T) {
 
 	var cnt int
 	cb := func(r *Record, eid uint32, fid uint16, buff []byte) error {
+		if r.EndOfRecord && buff == nil {
+			return nil
+		}
 		if eid != 0 || !(fid == 0x8 || fid == 12) {
 			return errors.New("invalid filtered set")
 		} else if r.Version != 10 || r.DomainID != 0 {
@@ -104,11 +107,11 @@ func TestIPFixWalkFilter(t *testing.T) {
 		cnt++
 		return nil
 	}
-	w, err := NewWalker(&f, cb, 16, 1024)
+	w, err := NewWalker(&f, 16, 1024)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = w.WalkBuffer(walkerPkt); err != nil {
+	if err = w.WalkBuffer(walkerPkt, cb); err != nil {
 		t.Fatal(err)
 	}
 	if cnt != filteredItems {
@@ -119,13 +122,16 @@ func TestIPFixWalkFilter(t *testing.T) {
 func BenchmarkFullWalk(b *testing.B) {
 	var cnt int
 	cb := func(r *Record, eid uint32, fid uint16, buff []byte) error {
+		if r.EndOfRecord && buff == nil {
+			return nil
+		}
 		if eid != 0 {
 			return errors.New("invalid enterprise id")
 		}
 		cnt++
 		return nil
 	}
-	w, err := NewWalker(nil, cb, 16, 1024)
+	w, err := NewWalker(nil, 16, 1024)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -133,7 +139,7 @@ func BenchmarkFullWalk(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		cnt = 0
-		if err = w.WalkBuffer(walkerPkt); err != nil {
+		if err = w.WalkBuffer(walkerPkt, cb); err != nil {
 			b.Fatal(err)
 		}
 		if cnt != totalItems {
@@ -150,6 +156,9 @@ func BenchmarkFilterWalk(b *testing.B) {
 	f.Set(0, 12)
 	var cnt int
 	cb := func(r *Record, eid uint32, fid uint16, buff []byte) error {
+		if r.EndOfRecord && buff == nil {
+			return nil
+		}
 		if eid != 0 {
 			return errors.New("invalid enterprise id")
 		} else if len(buff) != 4 {
@@ -159,7 +168,7 @@ func BenchmarkFilterWalk(b *testing.B) {
 		cnt++
 		return nil
 	}
-	w, err := NewWalker(&f, cb, 16, 1024)
+	w, err := NewWalker(&f, 16, 1024)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -167,7 +176,7 @@ func BenchmarkFilterWalk(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		cnt = 0
-		if err = w.WalkBuffer(walkerPkt); err != nil {
+		if err = w.WalkBuffer(walkerPkt, cb); err != nil {
 			b.Fatal(err)
 		}
 		if cnt != filteredItems {
@@ -196,6 +205,9 @@ func TestNFv9Walk(t *testing.T) {
 
 	var cnt int
 	cb := func(r *Record, eid uint32, fid uint16, buff []byte) error {
+		if r.EndOfRecord && buff == nil {
+			return nil
+		}
 		if eid != 0 {
 			return errors.New("invalid enterprise id")
 		}
@@ -214,11 +226,11 @@ func TestNFv9Walk(t *testing.T) {
 		return nil
 	}
 
-	w, err := NewWalker(&f, cb, 16, 1024)
+	w, err := NewWalker(&f, 16, 1024)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = w.WalkBuffer(pkt); err != nil {
+	if err = w.WalkBuffer(pkt, cb); err != nil {
 		t.Fatal(err)
 	}
 	//check the number of call backs against what is in the packet
