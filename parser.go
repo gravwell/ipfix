@@ -163,8 +163,9 @@ func NewSession(opts ...Option) *Session {
 }
 
 const (
-	msgHeaderLength = 2 + 2 + 4 + 4 + 4
-	setHeaderLength = 2 + 2
+	msgIpfixHeaderLength = 2 + 2 + 4 + 4 + 4
+	msgNFv9HeaderLength  = 2 + 2 + 4 + 4 + 4 + 4
+	setHeaderLength      = 2 + 2
 )
 
 // Version returns the Netflow/IPFIX version seen in the most recent header.
@@ -190,7 +191,7 @@ func (s *Session) ParseReader(r io.Reader) (Message, error) {
 		return Message{}, err
 	}
 
-	sl := newSlice(bs[msgHeaderLength:])
+	sl := newSlice(bs[msgIpfixHeaderLength:])
 	var msg Message
 	msg.Header = hdr
 
@@ -216,6 +217,7 @@ func (s *Session) ParseBuffer(bs []byte) (Message, error) {
 // ParseBufferAll extracts all message from the given buffer and returns them.
 // Err is nil if the buffer could be parsed correctly. ParseBufferAll is
 // goroutine safe.
+// ParseBufferAll does not currently support NFv9
 func (s *Session) ParseBufferAll(bs []byte) ([]Message, error) {
 	var msgs []Message
 	var err error
@@ -225,8 +227,7 @@ func (s *Session) ParseBufferAll(bs []byte) ([]Message, error) {
 	for sl.Len() > 0 {
 		var msg Message
 		msg.Header.unmarshal(sl)
-		length := int(msg.Header.Length - msgHeaderLength)
-
+		length := int(msg.Header.Length - msgIpfixHeaderLength)
 		cut := newSlice(sl.Cut(length))
 		if msg.TemplateRecords, msg.DataRecords, err = s.readBuffer(cut); err != nil {
 			break
@@ -655,7 +656,11 @@ func (s *Session) LoadTemplateRecords(trecs []TemplateRecord) {
 func (s *Session) calculateMarshalledLength(m Message) (int, int, int, error) {
 	var length int
 	var tmplLen, dataLen int
-	length += msgHeaderLength // there will always be a header
+	if m.Header.Version == 0x0a {
+		length += msgIpfixHeaderLength // there will always be a header
+	} else {
+		length += msgNFv9HeaderLength // there will always be a header
+	}
 	if len(m.TemplateRecords) > 0 {
 		// We will be creating a template set
 		tmplLen += setHeaderLength
@@ -717,17 +722,34 @@ func (s *Session) Marshal(m Message) ([]byte, error) {
 	message := make([]byte, length)
 
 	// Populate the header
-	binary.BigEndian.PutUint16(message[:2], m.Header.Version)
-	binary.BigEndian.PutUint32(message[4:8], m.Header.ExportTime)
-	binary.BigEndian.PutUint32(message[8:12], m.Header.SequenceNumber)
-	binary.BigEndian.PutUint32(message[12:16], m.Header.DomainID)
-	binary.BigEndian.PutUint16(message[2:4], uint16(length))
-	offset := msgHeaderLength
+	if m.Header.Version == 0x0a {
+		binary.BigEndian.PutUint16(message[:2], m.Header.Version)
+		binary.BigEndian.PutUint16(message[2:4], uint16(length))
+		binary.BigEndian.PutUint32(message[4:8], m.Header.ExportTime)
+		binary.BigEndian.PutUint32(message[8:12], m.Header.SequenceNumber)
+		binary.BigEndian.PutUint32(message[12:16], m.Header.DomainID)
+	} else {
+		binary.BigEndian.PutUint16(message[:2], m.Header.Version)
+		binary.BigEndian.PutUint16(message[2:4], uint16(len(m.TemplateRecords)+len(m.DataRecords)))
+		binary.BigEndian.PutUint32(message[4:8], m.Header.SysUptime)
+		binary.BigEndian.PutUint32(message[4:8], m.Header.ExportTime)
+		binary.BigEndian.PutUint32(message[8:12], m.Header.SequenceNumber)
+		binary.BigEndian.PutUint32(message[12:16], m.Header.DomainID)
+	}
+
+	offset := msgIpfixHeaderLength
+	if m.Header.Version == 0x09 {
+		offset = msgNFv9HeaderLength
+	}
 
 	// Build template records set
 	if len(m.TemplateRecords) > 0 {
 		// construct template set header
-		binary.BigEndian.PutUint16(message[offset:offset+2], 2)                 // type is always 2 for templates
+		if m.Header.Version == 0x0a {
+			binary.BigEndian.PutUint16(message[offset:offset+2], 2) // type is always 2 for templates on IPFIX
+		} else {
+			binary.BigEndian.PutUint16(message[offset:offset+2], 0) // type is always 0 for templates on NFv9
+		}
 		binary.BigEndian.PutUint16(message[offset+2:offset+4], uint16(tmplLen)) // we calculated earlier
 		offset += 4
 

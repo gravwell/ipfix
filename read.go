@@ -8,10 +8,10 @@ import "io"
 // new slice is allocated. The returned message slice contains the message
 // header.
 func Read(r io.Reader, bs []byte) ([]byte, MessageHeader, error) {
-	if len(bs) < msgHeaderLength {
+	if len(bs) < msgIpfixHeaderLength {
 		bs = make([]byte, 65536)
 	}
-	_, err := io.ReadFull(r, bs[:msgHeaderLength])
+	_, err := io.ReadFull(r, bs[:msgIpfixHeaderLength])
 	if err != nil {
 		return nil, MessageHeader{}, err
 	}
@@ -24,17 +24,17 @@ func Read(r io.Reader, bs []byte) ([]byte, MessageHeader, error) {
 	}
 	if len(bs) < int(hdr.Length) {
 		newBs := make([]byte, 65536)
-		copy(newBs, bs[:msgHeaderLength])
+		copy(newBs, bs[:msgIpfixHeaderLength])
 		bs = newBs
 	}
 
-	if hdr.Length < msgHeaderLength {
+	if hdr.Length < msgIpfixHeaderLength {
 		// Message can't be shorter than its header
 		return nil, hdr, io.ErrUnexpectedEOF
 	}
 
 	bs = bs[:int(hdr.Length)]
-	_, err = io.ReadFull(r, bs[msgHeaderLength:])
+	_, err = io.ReadFull(r, bs[msgIpfixHeaderLength:])
 	if err != nil {
 		return nil, hdr, err
 	}
