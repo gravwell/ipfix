@@ -1,4 +1,4 @@
-module github.com/floren/ipfix/v1
+module github.com/floren/ipfix
 
 go 1.13
 
