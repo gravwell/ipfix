@@ -5,16 +5,15 @@ import (
 	"io"
 )
 
-type RecordCallback func(MessageHeader, uint32, uint16, []byte) error
+type RecordCallback func(*Record, uint32, uint16, []byte) error
 
 type Record struct {
 	MessageHeader
-	TemplateFieldSpecifier
-	Data []byte
+	SetID        int
+	DataRecordID int
 }
 
 type Walker struct {
-	r         Record
 	cb        RecordCallback
 	f         *Filter
 	filtering bool
@@ -44,24 +43,24 @@ func NewWalker(f *Filter, cb RecordCallback, trbufsize, fidbufsize int) (w *Walk
 }
 
 func (w *Walker) WalkBuffer(buf []byte) (err error) {
-	var h MessageHeader
+	var r Record
 	sl := slice{bs: buf}
-	h.unmarshal(&sl)
-	if w.filtering && w.f.FilterHeader(h.DomainID, h.Version) {
+	r.MessageHeader.unmarshal(&sl)
+	if w.filtering && w.f.FilterHeader(r.DomainID, r.Version) {
 		return
 	}
-	switch h.Version {
+	switch r.Version {
 	case ipfixVersion:
-		err = w.walkIpfixBuffer(&sl, h)
+		err = w.walkIpfixBuffer(&sl, &r)
 	case nfv9Version:
-		err = w.walkNfv9Buffer(&sl, h)
+		err = w.walkNfv9Buffer(&sl, &r)
 	default:
 		err = ErrVersion
 	}
 	return
 }
 
-func (w *Walker) walkIpfixBuffer(sl *slice, mh MessageHeader) (err error) {
+func (w *Walker) walkIpfixBuffer(sl *slice, r *Record) (err error) {
 	var sh setHeader
 	var nsl slice
 	//reset the template record buffer
@@ -78,6 +77,7 @@ func (w *Walker) walkIpfixBuffer(sl *slice, mh MessageHeader) (err error) {
 			break
 		}
 		sh.unmarshal(sl)
+
 		if sh.Length < setHeaderLength {
 			err = io.ErrUnexpectedEOF
 			break
@@ -88,17 +88,19 @@ func (w *Walker) walkIpfixBuffer(sl *slice, mh MessageHeader) (err error) {
 		if err = sl.Error(); err != nil {
 			break
 		}
-		if err = w.walkIPFixSet(mh, &sh, &nsl); err != nil {
+		if err = w.walkIPFixSet(r, &sh, &nsl); err != nil {
 			break
 		}
+		r.SetID++
 	}
 
 	return
 }
 
-func (w *Walker) walkIPFixSet(mh MessageHeader, sh *setHeader, sl *slice) (err error) {
+func (w *Walker) walkIPFixSet(r *Record, sh *setHeader, sl *slice) (err error) {
 	var tmpl TemplateRecord
 	var ok bool
+	r.DataRecordID = 0
 	var minLen uint16
 
 	for sl.Len() > 0 && sl.Error() == nil {
@@ -136,15 +138,16 @@ func (w *Walker) walkIPFixSet(mh MessageHeader, sh *setHeader, sl *slice) (err e
 			if minLen == 0 {
 				minLen = calcMinRecLen(tmpl.FieldSpecifiers)
 			}
-			if err = w.handleDataRecord(mh, sh, tmpl.FieldSpecifiers, sl); err != nil {
+			if err = w.handleDataRecord(r, sh, tmpl.FieldSpecifiers, sl); err != nil {
 				return
 			}
 		}
+		r.DataRecordID++
 	}
 	return
 }
 
-func (w *Walker) handleDataRecord(mh MessageHeader, sh *setHeader, tpl []TemplateFieldSpecifier, sl *slice) (err error) {
+func (w *Walker) handleDataRecord(r *Record, sh *setHeader, tpl []TemplateFieldSpecifier, sl *slice) (err error) {
 	var val []byte
 	var l int
 	var lo uint8
@@ -162,10 +165,12 @@ func (w *Walker) handleDataRecord(mh MessageHeader, sh *setHeader, tpl []Templat
 		if err = sl.Error(); err != nil {
 			return err
 		}
-		if w.filtering && w.f.IsSet(tpl[i].EnterpriseID, tpl[i].FieldID) {
-			if err = w.cb(mh, tpl[i].EnterpriseID, tpl[i].FieldID, val); err != nil {
-				return
-			}
+		if w.filtering && !w.f.IsSet(tpl[i].EnterpriseID, tpl[i].FieldID) {
+			continue //not looking at this item
+		}
+
+		if err = w.cb(r, tpl[i].EnterpriseID, tpl[i].FieldID, val); err != nil {
+			return
 		}
 	}
 	err = sl.Error()
@@ -222,7 +227,7 @@ func (w *Walker) allocateTemplateFieldSpecifiers(cnt uint16) (r []TemplateFieldS
 	return
 }
 
-func (w *Walker) walkNfv9Buffer(sl *slice, mh MessageHeader) (err error) {
+func (w *Walker) walkNfv9Buffer(sl *slice, r *Record) (err error) {
 	var sh setHeader
 	var nsl slice
 	//reset the template record buffer
@@ -249,7 +254,7 @@ func (w *Walker) walkNfv9Buffer(sl *slice, mh MessageHeader) (err error) {
 		if err = sl.Error(); err != nil {
 			break
 		}
-		if err = w.walkNFv9Set(mh, &sh, &nsl); err != nil {
+		if err = w.walkNFv9Set(r, &sh, &nsl); err != nil {
 			break
 		}
 	}
@@ -258,9 +263,10 @@ func (w *Walker) walkNfv9Buffer(sl *slice, mh MessageHeader) (err error) {
 
 }
 
-func (w *Walker) walkNFv9Set(mh MessageHeader, sh *setHeader, sl *slice) (err error) {
+func (w *Walker) walkNFv9Set(r *Record, sh *setHeader, sl *slice) (err error) {
 	var tmpl TemplateRecord
 	var ok bool
+  r.DataRecordID = 0
 	var minLen uint16
 
 	for sl.Len() > 0 && sl.Error() == nil {
@@ -293,7 +299,7 @@ func (w *Walker) walkNFv9Set(mh MessageHeader, sh *setHeader, sl *slice) (err er
 			if minLen == 0 {
 				minLen = calcMinRecLen(tmpl.FieldSpecifiers)
 			}
-			if err = w.handleDataRecord(mh, sh, tmpl.FieldSpecifiers, sl); err != nil {
+			if err = w.handleDataRecord(r, sh, tmpl.FieldSpecifiers, sl); err != nil {
 				return
 			}
 		}
