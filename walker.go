@@ -78,7 +78,7 @@ func (w *Walker) walkIpfixBuffer(sl *slice, mh MessageHeader) (err error) {
 			break
 		}
 		sh.unmarshal(sl)
-		if mh.Length < setHeaderLength {
+		if sh.Length < setHeaderLength {
 			err = io.ErrUnexpectedEOF
 			break
 		}
@@ -99,8 +99,16 @@ func (w *Walker) walkIpfixBuffer(sl *slice, mh MessageHeader) (err error) {
 func (w *Walker) walkIPFixSet(mh MessageHeader, sh *setHeader, sl *slice) (err error) {
 	var tmpl TemplateRecord
 	var ok bool
+	var minLen uint16
 
 	for sl.Len() > 0 && sl.Error() == nil {
+		if sl.Len() < int(minLen) {
+			if debug {
+				dl.Println("ignoring padding")
+			}
+			// Padding
+			return
+		}
 		switch {
 		case sh.SetID < 2:
 			// Unused, shouldn't happen
@@ -124,7 +132,11 @@ func (w *Walker) walkIPFixSet(mh MessageHeader, sh *setHeader, sl *slice) (err e
 				//run the callback with the unknown template
 				err = ErrUnknownTemplate
 				return
-			} else if err = w.handleDataRecord(mh, sh, tmpl.FieldSpecifiers, sl); err != nil {
+			}
+			if minLen == 0 {
+				minLen = calcMinRecLen(tmpl.FieldSpecifiers)
+			}
+			if err = w.handleDataRecord(mh, sh, tmpl.FieldSpecifiers, sl); err != nil {
 				return
 			}
 		}
@@ -211,16 +223,81 @@ func (w *Walker) allocateTemplateFieldSpecifiers(cnt uint16) (r []TemplateFieldS
 }
 
 func (w *Walker) walkNfv9Buffer(sl *slice, mh MessageHeader) (err error) {
+	var sh setHeader
+	var nsl slice
 	//reset the template record buffer
 	w.trbuf = w.trbuf[:]
 	//reset our template filds buffer
 	w.fidbuf = w.fidbuf[:]
 
-	err = errors.New("not ready")
+	for {
+		l := sl.Len()
+		if l == 0 {
+			break
+		} else if l < setHeaderLength {
+			err = io.ErrUnexpectedEOF
+			break
+		}
+		sh.unmarshal(sl)
+		if sh.Length < setHeaderLength {
+			err = io.ErrUnexpectedEOF
+			break
+		}
+		// Grab the bytes representing the set
+		setLen := int(sh.Length) - setHeaderLength
+		nsl.bs = sl.Cut(setLen)
+		if err = sl.Error(); err != nil {
+			break
+		}
+		if err = w.walkNFv9Set(mh, &sh, &nsl); err != nil {
+			break
+		}
+	}
+
 	return
+
 }
 
-func (w *Walker) walkNFv9Set(sh *setHeader, setSl *slice) (err error) {
-	err = errors.New("not ready")
+func (w *Walker) walkNFv9Set(mh MessageHeader, sh *setHeader, sl *slice) (err error) {
+	var tmpl TemplateRecord
+	var ok bool
+	var minLen uint16
+
+	for sl.Len() > 0 && sl.Error() == nil {
+		if sl.Len() < int(minLen) {
+			if debug {
+				dl.Println("ignoring padding")
+			}
+			// Padding
+			return
+		}
+		switch {
+		case sh.SetID == 0:
+			if err = w.readTemplateRecord(sl); err != nil {
+				return
+			}
+		case sh.SetID == 1:
+			// Options Template Set, not handled
+			sl.Cut(sl.Len())
+		case sh.SetID > 2 && sh.SetID < 256:
+			// Reserved, shouldn't happen
+			err = ErrProtocol
+			return
+		default:
+			// actual data record
+			if tmpl, ok = w.lookupTemplateRecord(sh.SetID); !ok {
+				//run the callback with the unknown template
+				err = ErrUnknownTemplate
+				return
+			}
+			if minLen == 0 {
+				minLen = calcMinRecLen(tmpl.FieldSpecifiers)
+			}
+			if err = w.handleDataRecord(mh, sh, tmpl.FieldSpecifiers, sl); err != nil {
+				return
+			}
+		}
+	}
 	return
+
 }
