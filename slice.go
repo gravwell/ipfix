@@ -1,6 +1,8 @@
 package ipfix
 
-import "encoding/binary"
+import (
+	"encoding/binary"
+)
 
 type slice struct {
 	bs  []byte
