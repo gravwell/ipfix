@@ -156,6 +156,7 @@ func BenchmarkFilterWalk(b *testing.B) {
 			//IPv4 address
 			return errors.New("Invalid data size")
 		}
+		cnt++
 		return nil
 	}
 	w, err := NewWalker(&f, cb, 16, 1024)
