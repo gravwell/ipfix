@@ -42,9 +42,11 @@ func TestIPFixWalk(t *testing.T) {
 	}
 
 	var cnt int
-	cb := func(mh MessageHeader, eid uint32, fid uint16, buff []byte) error {
+	cb := func(r *Record, eid uint32, fid uint16, buff []byte) error {
 		if eid != 0 {
 			return errors.New("invalid enterprise id")
+		} else if r.Version != 10 || r.DomainID != 0 {
+			return fmt.Errorf("Invalid header: %d %d", r.Version, r.DomainID)
 		}
 		ft, ok := IPfixIDTypeLookup(eid, fid)
 		if !ok {
@@ -90,9 +92,11 @@ func TestIPFixWalkFilter(t *testing.T) {
 	f.Set(0, 12)
 
 	var cnt int
-	cb := func(mh MessageHeader, eid uint32, fid uint16, buff []byte) error {
+	cb := func(r *Record, eid uint32, fid uint16, buff []byte) error {
 		if eid != 0 || !(fid == 0x8 || fid == 12) {
 			return errors.New("invalid filtered set")
+		} else if r.Version != 10 || r.DomainID != 0 {
+			return errors.New("Invalid header")
 		} else if len(buff) != 4 {
 			//IPv4 address
 			return errors.New("Invalid data size")
@@ -114,7 +118,7 @@ func TestIPFixWalkFilter(t *testing.T) {
 
 func BenchmarkFullWalk(b *testing.B) {
 	var cnt int
-	cb := func(mh MessageHeader, eid uint32, fid uint16, buff []byte) error {
+	cb := func(r *Record, eid uint32, fid uint16, buff []byte) error {
 		if eid != 0 {
 			return errors.New("invalid enterprise id")
 		}
@@ -145,7 +149,7 @@ func BenchmarkFilterWalk(b *testing.B) {
 	f.Set(0, 8)
 	f.Set(0, 12)
 	var cnt int
-	cb := func(mh MessageHeader, eid uint32, fid uint16, buff []byte) error {
+	cb := func(r *Record, eid uint32, fid uint16, buff []byte) error {
 		if eid != 0 {
 			return errors.New("invalid enterprise id")
 		} else if len(buff) != 4 {
