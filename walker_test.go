@@ -93,6 +93,9 @@ func TestIPFixWalkFilter(t *testing.T) {
 
 	var cnt int
 	cb := func(r *Record, eid uint32, fid uint16, buff []byte) error {
+		if r.EndOfRecord && buff == nil {
+			return nil
+		}
 		if eid != 0 || !(fid == 0x8 || fid == 12) {
 			return errors.New("invalid filtered set")
 		} else if r.Version != 10 || r.DomainID != 0 {
@@ -119,6 +122,9 @@ func TestIPFixWalkFilter(t *testing.T) {
 func BenchmarkFullWalk(b *testing.B) {
 	var cnt int
 	cb := func(r *Record, eid uint32, fid uint16, buff []byte) error {
+		if r.EndOfRecord && buff == nil {
+			return nil
+		}
 		if eid != 0 {
 			return errors.New("invalid enterprise id")
 		}
@@ -150,6 +156,9 @@ func BenchmarkFilterWalk(b *testing.B) {
 	f.Set(0, 12)
 	var cnt int
 	cb := func(r *Record, eid uint32, fid uint16, buff []byte) error {
+		if r.EndOfRecord && buff == nil {
+			return nil
+		}
 		if eid != 0 {
 			return errors.New("invalid enterprise id")
 		} else if len(buff) != 4 {
@@ -196,6 +205,9 @@ func TestNFv9Walk(t *testing.T) {
 
 	var cnt int
 	cb := func(r *Record, eid uint32, fid uint16, buff []byte) error {
+		if r.EndOfRecord && buff == nil {
+			return nil
+		}
 		if eid != 0 {
 			return errors.New("invalid enterprise id")
 		}
