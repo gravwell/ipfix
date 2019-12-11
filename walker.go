@@ -5,6 +5,10 @@ import (
 	"io"
 )
 
+var (
+	ErrNilCallback = errors.New("nil callback")
+)
+
 type RecordCallback func(*Record, uint32, uint16, []byte) error
 
 type Record struct {
@@ -23,11 +27,7 @@ type Walker struct {
 	fidbuf    []TemplateFieldSpecifier
 }
 
-func NewWalker(f *Filter, cb RecordCallback, trbufsize, fidbufsize int) (w *Walker, err error) {
-	if cb == nil {
-		err = errors.New("nil callback")
-		return
-	}
+func NewWalker(f *Filter, trbufsize, fidbufsize int) (w *Walker, err error) {
 	if trbufsize <= 0 {
 		trbufsize = 32
 	}
@@ -35,7 +35,6 @@ func NewWalker(f *Filter, cb RecordCallback, trbufsize, fidbufsize int) (w *Walk
 		fidbufsize = 1024
 	}
 	w = &Walker{
-		cb:        cb,
 		f:         f,
 		filtering: f != nil,
 		trbuf:     make([]TemplateRecord, 0, trbufsize),          //eeeh, sure
@@ -44,8 +43,14 @@ func NewWalker(f *Filter, cb RecordCallback, trbufsize, fidbufsize int) (w *Walk
 	return
 }
 
-func (w *Walker) WalkBuffer(buf []byte) (err error) {
+func (w *Walker) WalkBuffer(buf []byte, cb RecordCallback) (err error) {
 	var r Record
+	if cb == nil {
+		err = ErrNilCallback
+		return
+	}
+	w.cb = cb
+
 	sl := slice{bs: buf}
 	r.MessageHeader.unmarshal(&sl)
 	if w.filtering && w.f.FilterHeader(r.DomainID, r.Version) {

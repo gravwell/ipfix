@@ -70,11 +70,11 @@ func TestIPFixWalk(t *testing.T) {
 		return nil
 	}
 
-	w, err := NewWalker(&f, cb, 16, 1024)
+	w, err := NewWalker(&f, 16, 1024)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = w.WalkBuffer(walkerPkt); err != nil {
+	if err = w.WalkBuffer(walkerPkt, cb); err != nil {
 		t.Fatal(err)
 	}
 	//check the number of call backs against what is in the packet
@@ -107,11 +107,11 @@ func TestIPFixWalkFilter(t *testing.T) {
 		cnt++
 		return nil
 	}
-	w, err := NewWalker(&f, cb, 16, 1024)
+	w, err := NewWalker(&f, 16, 1024)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = w.WalkBuffer(walkerPkt); err != nil {
+	if err = w.WalkBuffer(walkerPkt, cb); err != nil {
 		t.Fatal(err)
 	}
 	if cnt != filteredItems {
@@ -131,7 +131,7 @@ func BenchmarkFullWalk(b *testing.B) {
 		cnt++
 		return nil
 	}
-	w, err := NewWalker(nil, cb, 16, 1024)
+	w, err := NewWalker(nil, 16, 1024)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -139,7 +139,7 @@ func BenchmarkFullWalk(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		cnt = 0
-		if err = w.WalkBuffer(walkerPkt); err != nil {
+		if err = w.WalkBuffer(walkerPkt, cb); err != nil {
 			b.Fatal(err)
 		}
 		if cnt != totalItems {
@@ -168,7 +168,7 @@ func BenchmarkFilterWalk(b *testing.B) {
 		cnt++
 		return nil
 	}
-	w, err := NewWalker(&f, cb, 16, 1024)
+	w, err := NewWalker(&f, 16, 1024)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -176,7 +176,7 @@ func BenchmarkFilterWalk(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		cnt = 0
-		if err = w.WalkBuffer(walkerPkt); err != nil {
+		if err = w.WalkBuffer(walkerPkt, cb); err != nil {
 			b.Fatal(err)
 		}
 		if cnt != filteredItems {
@@ -226,11 +226,11 @@ func TestNFv9Walk(t *testing.T) {
 		return nil
 	}
 
-	w, err := NewWalker(&f, cb, 16, 1024)
+	w, err := NewWalker(&f, 16, 1024)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = w.WalkBuffer(pkt); err != nil {
+	if err = w.WalkBuffer(pkt, cb); err != nil {
 		t.Fatal(err)
 	}
 	//check the number of call backs against what is in the packet
