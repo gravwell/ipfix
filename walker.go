@@ -71,9 +71,9 @@ func (w *Walker) walkIpfixBuffer(sl *slice, r *Record) (err error) {
 	var sh setHeader
 	var nsl slice
 	//reset the template record buffer
-	w.trbuf = w.trbuf[:]
+	w.trbuf = w.trbuf[0:0]
 	//reset our template filds buffer
-	w.fidbuf = w.fidbuf[:]
+	w.fidbuf = w.fidbuf[0:0]
 
 	for {
 		l := sl.Len()
@@ -249,9 +249,9 @@ func (w *Walker) walkNfv9Buffer(sl *slice, r *Record) (err error) {
 	var sh setHeader
 	var nsl slice
 	//reset the template record buffer
-	w.trbuf = w.trbuf[:]
+	w.trbuf = w.trbuf[0:0]
 	//reset our template filds buffer
-	w.fidbuf = w.fidbuf[:]
+	w.fidbuf = w.fidbuf[0:0]
 
 	for {
 		l := sl.Len()
