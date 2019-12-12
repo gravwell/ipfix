@@ -529,6 +529,16 @@ func NetflowV9IDLookup(fieldID uint16) (string, bool) {
 	return "", false
 }
 
+// NetflowV9IDTypeLookup looks up the type corresponding to the specified enterprised ID and field
+func NetflowV9IDTypeLookup(fieldID uint16) (ft FieldType, ok bool) {
+	key := dictionaryKey{uint32(0), fieldID}
+	var de DictionaryEntry
+	if de, ok = builtinNetflowV9Dictionary[key]; ok {
+		ft = de.Type
+	}
+	return
+}
+
 // LookupAndIdentify looks up the given name, returns an enterprise ID & field ID and a version
 // number for the protocol to which it belongs: 0x09 for Netflow V9, 0x0a for IPFIX.
 // The fourth return value is an "ok" value, indicating if either lookup was successful or not.
