@@ -732,9 +732,9 @@ func (s *Session) Marshal(m Message) ([]byte, error) {
 		binary.BigEndian.PutUint16(message[:2], m.Header.Version)
 		binary.BigEndian.PutUint16(message[2:4], uint16(len(m.TemplateRecords)+len(m.DataRecords)))
 		binary.BigEndian.PutUint32(message[4:8], m.Header.SysUptime)
-		binary.BigEndian.PutUint32(message[4:8], m.Header.ExportTime)
-		binary.BigEndian.PutUint32(message[8:12], m.Header.SequenceNumber)
-		binary.BigEndian.PutUint32(message[12:16], m.Header.DomainID)
+		binary.BigEndian.PutUint32(message[8:12], m.Header.ExportTime)
+		binary.BigEndian.PutUint32(message[12:16], m.Header.SequenceNumber)
+		binary.BigEndian.PutUint32(message[16:20], m.Header.DomainID)
 	}
 
 	offset := msgIpfixHeaderLength
