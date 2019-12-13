@@ -20,13 +20,19 @@ type Record struct {
 }
 
 type Walker struct {
-	cb        RecordCallback
-	f         *Filter
-	filtering bool
-	trbuf     []TemplateRecord
-	fidbuf    []TemplateFieldSpecifier
+	cb         RecordCallback
+	f          *Filter
+	filtering  bool
+	headerOnly bool
+	trbuf      []TemplateRecord
+	fidbuf     []TemplateFieldSpecifier
 }
 
+// NewWalker creates a new Walker object. It will use the given Filter
+// to perform pre-filtering of entries. trbufsize and fidbufsize give
+// sizes to use when pre-allocating the template record buffer
+// and the template field specifier buffer, respectively; 64 and 4096
+// would be safe defaults to use.
 func NewWalker(f *Filter, trbufsize, fidbufsize int) (w *Walker, err error) {
 	if trbufsize <= 0 {
 		trbufsize = 32
@@ -43,6 +49,32 @@ func NewWalker(f *Filter, trbufsize, fidbufsize int) (w *Walker, err error) {
 	return
 }
 
+// SetHeaderOnly can be used to enable header-only parsing via the
+// walker. If set to true, the WalkBuffer function will call the
+// callback only once, with an EID and FID of 0.
+func (w *Walker) SetHeaderOnly(v bool) {
+	w.headerOnly = v
+}
+
+// WalkBuffer walks an IPFIX or Netflow V9 packet in buf, calling
+// the callback function in accordance with the following rules:
+//
+// 1. If SetHeaderOnly(true) was called, the callback will be called
+// precisely once, with EndOfRecord set in the record parameter,
+// EID and FID set to zero, and a nil buffer. This allows code
+// to view the packet header only.
+//
+// 2. If a nil Filter was passed when building the Walker, the callback
+// will be called for every field in each record. When a record has
+// been fully processed, the callback will be called again with
+// EndOfRecord set to true, EID and FID set to zero, and a nil buffer.
+// The next record will then be processed, and so on until the message
+// has been fully read.
+//
+// 3. If a non-nil Filter was passed, the function will behave exactly
+// as in case #2 except that only those EID and FID combinations registered
+// with the Filter will trigger a callback. The EndOfRecord callback
+// will still occur as normal.
 func (w *Walker) WalkBuffer(buf []byte, cb RecordCallback) (err error) {
 	var r Record
 	if cb == nil {
@@ -56,13 +88,19 @@ func (w *Walker) WalkBuffer(buf []byte, cb RecordCallback) (err error) {
 	if w.filtering && w.f.FilterHeader(r.DomainID, r.Version) {
 		return
 	}
-	switch r.Version {
-	case ipfixVersion:
-		err = w.walkIpfixBuffer(&sl, &r)
-	case nfv9Version:
-		err = w.walkNfv9Buffer(&sl, &r)
-	default:
-		err = ErrVersion
+	if w.headerOnly {
+		// only processing the header
+		r.EndOfRecord = true
+		err = w.cb(&r, 0, 0, nil)
+	} else {
+		switch r.Version {
+		case ipfixVersion:
+			err = w.walkIpfixBuffer(&sl, &r)
+		case nfv9Version:
+			err = w.walkNfv9Buffer(&sl, &r)
+		default:
+			err = ErrVersion
+		}
 	}
 	return
 }
