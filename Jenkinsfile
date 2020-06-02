@@ -10,7 +10,7 @@ pipeline {
     stages {
         stage('Pull') {
             steps {
-                dir('src/github.com/floren/ipfix') {
+                dir('src/github.com/gravwell/ipfix') {
                     checkout scm
                 }
             }
@@ -18,7 +18,7 @@ pipeline {
 
         stage('Test') {
             steps {
-                sh 'cd src/github.com/floren/ipfix && go test'
+                sh 'cd src/github.com/gravwell/ipfix && go test'
             }
         }
     }
