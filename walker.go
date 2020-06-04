@@ -243,6 +243,7 @@ func (w *Walker) readTemplateRecord(sl *slice) (err error) {
 	tr.TemplateID = th.TemplateID
 	specs := w.allocateTemplateFieldSpecifiers(th.FieldCount)
 	for i := uint16(0); i < th.FieldCount; i++ {
+		specs[i].EnterpriseID = uint32(0)
 		specs[i].FieldID = sl.Uint16()
 		specs[i].Length = sl.Uint16()
 		if specs[i].FieldID >= 0x8000 {
