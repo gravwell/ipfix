@@ -4,7 +4,6 @@ package ipfix
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"os"
 
