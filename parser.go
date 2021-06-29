@@ -33,6 +33,9 @@ var ErrProtocol = errors.New("protocol error")
 // which has not yet been seen by the parser.
 var ErrUnknownTemplate = errors.New("unknown template")
 
+// ErrTooManyTemplates is when template records don't match the specifier
+var ErrTooManyTemplates = errors.New("too many fields for template")
+
 // A Message is the top level construct representing an IPFIX message. A well
 // formed message contains one or more sets of data or template information.
 type Message struct {
@@ -838,8 +841,8 @@ func (m Message) marshalRecords(offset int, lu lookupFunc, message []byte) (err 
 				offset += 4
 			}
 			for i, field := range dr.Fields {
-				if i > len(tpl) {
-					err = errors.New("too many fields for template")
+				if i >= len(tpl) {
+					err = ErrTooManyTemplates
 					return
 				}
 				// Handle variable-length fields
@@ -940,7 +943,7 @@ func (m Message) calculateMarshalledLength() (int, int, int, error) {
 			}
 			for i, field := range dr.Fields {
 				if i > len(tpl) {
-					return 0, 0, 0, errors.New("too many fields for template")
+					return 0, 0, 0, ErrTooManyTemplates
 				}
 				// Handle variable-length fields
 				if tpl[i].Length == 0xffff {
