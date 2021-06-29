@@ -61,6 +61,13 @@ func TestMarshalTemplateSet(t *testing.T) {
 	if !bytes.Equal(marshalled, packet) {
 		t.Fatal("Expected didn't match marshalled bytes")
 	}
+
+	marshalled2, err := msg.Marshal()
+	if err != nil {
+		t.Fatal("Message marshal failed", err)
+	} else if !bytes.Equal(marshalled2, packet) {
+		t.Fatal("Expected didn't match marshalled bytes")
+	}
 }
 
 func TestMarshalDataSet(t *testing.T) {
@@ -194,6 +201,18 @@ func testParseDataSetV9(withAliasing bool, t *testing.T) {
 	if len(msg.TemplateRecords) != 3 {
 		t.Error("Incorrect number of template records", len(msg.TemplateRecords))
 	}
+
+	marshalled, err := p.Marshal(msg)
+	if err != nil {
+		t.Fatal("Marshal failed", err)
+	}
+
+	//unmarshal and make sure we get the same number of records back out
+	if msg2, err := p.ParseBuffer(marshalled); err != nil {
+		t.Fatal("Failed parse marshalled buffer", err)
+	} else if len(msg2.DataRecords) != 28 {
+		t.Fatalf("remarshalled message does not match template records: %d != %d", len(msg.DataRecords), len(msg2.DataRecords))
+	}
 }
 
 func TestReadParseBuffer(t *testing.T) {
@@ -280,7 +299,7 @@ func TestParallellParseBuffer(t *testing.T) {
 			for i := 0; i < 1000; i++ {
 				msg, err := p.ParseBuffer(p1)
 				if err != nil {
-					t.Fatal("ParseReader failed", err)
+					t.Error("ParseReader failed", err)
 				}
 
 				if len(msg.DataRecords) != 31 {
