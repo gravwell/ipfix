@@ -33,6 +33,9 @@ var ErrProtocol = errors.New("protocol error")
 // which has not yet been seen by the parser.
 var ErrUnknownTemplate = errors.New("unknown template")
 
+// ErrTooManyTemplates is when template records don't match the specifier
+var ErrTooManyTemplates = errors.New("too many fields for template")
+
 // A Message is the top level construct representing an IPFIX message. A well
 // formed message contains one or more sets of data or template information.
 type Message struct {
@@ -678,16 +681,21 @@ func (s *Session) calculateMarshalledLength(m Message) (int, int, int, error) {
 	}
 	if len(m.DataRecords) > 0 {
 		currentTemplate := m.DataRecords[0].TemplateID
-		tpl := s.lookupTemplateFieldSpecifiers(currentTemplate)
+		tpl := s.lookupUnaliasedTemplateFieldSpecifiers(currentTemplate)
+		if len(tpl) == 0 {
+			return 0, 0, 0, ErrUnknownTemplate
+		}
 		dataLen += setHeaderLength
 		for _, dr := range m.DataRecords {
 			if dr.TemplateID != currentTemplate {
 				dataLen += setHeaderLength
-				tpl = s.lookupTemplateFieldSpecifiers(dr.TemplateID)
+				if tpl = s.lookupUnaliasedTemplateFieldSpecifiers(dr.TemplateID); len(tpl) == 0 {
+					return 0, 0, 0, ErrUnknownTemplate
+				}
 				currentTemplate = dr.TemplateID
 			}
 			for i, field := range dr.Fields {
-				if i > len(tpl) {
+				if i >= len(tpl) {
 					return 0, 0, 0, errors.New("too many fields for template")
 				}
 				// Handle variable-length fields
@@ -715,29 +723,48 @@ func (s *Session) Marshal(m Message) ([]byte, error) {
 	// First we'll calculate how big the message will be
 	length, tmplLen, _, err := s.calculateMarshalledLength(m)
 	if err != nil {
-		return []byte{}, nil
+		return []byte{}, err
 	}
 
 	// Now make the empty buffer (brings us down to 1 allocation per call to Marshal)
 	message := make([]byte, length)
 
-	// Populate the header
-	if m.Header.Version == 0x0a {
-		binary.BigEndian.PutUint16(message[:2], m.Header.Version)
-		binary.BigEndian.PutUint16(message[2:4], uint16(length))
-		binary.BigEndian.PutUint32(message[4:8], m.Header.ExportTime)
-		binary.BigEndian.PutUint32(message[8:12], m.Header.SequenceNumber)
-		binary.BigEndian.PutUint32(message[12:16], m.Header.DomainID)
-	} else {
-		binary.BigEndian.PutUint16(message[:2], m.Header.Version)
-		binary.BigEndian.PutUint16(message[2:4], uint16(len(m.TemplateRecords)+len(m.DataRecords)))
-		binary.BigEndian.PutUint32(message[4:8], m.Header.SysUptime)
-		binary.BigEndian.PutUint32(message[8:12], m.Header.ExportTime)
-		binary.BigEndian.PutUint32(message[12:16], m.Header.SequenceNumber)
-		binary.BigEndian.PutUint32(message[16:20], m.Header.DomainID)
+	marshalHeader(m.Header, uint16(length), uint16(len(m.TemplateRecords)+len(m.DataRecords)), message)
+
+	offset := m.marshalTemplates(tmplLen, message)
+
+	//do not look to aliases for field specifiers during marshal, they are unaliased when parsed
+	if err = m.marshalRecords(offset, s.lookupUnaliasedTemplateFieldSpecifiers, message); err != nil {
+		return []byte{}, err
+	}
+	return message, nil
+}
+
+// Marshal can marshal a complete stand alone message into a binary format
+// the Message must have a populated Template header for EVERY Record header
+// if we can't identify a corresponding template for each record, we return an error
+func (m Message) Marshal() ([]byte, error) {
+	length, tmplLen, _, err := m.calculateMarshalledLength()
+	if err != nil {
+		return nil, err
+	}
+	message := make([]byte, length)
+	marshalHeader(m.Header, uint16(length), uint16(len(m.TemplateRecords)+len(m.DataRecords)), message)
+
+	offset := m.marshalTemplates(tmplLen, message)
+	if offset > len(message) {
+		return nil, ErrRead
 	}
 
-	offset := msgIpfixHeaderLength
+	if err = m.marshalRecords(offset, m.lookupTemplateFieldSpecifiers, message); err != nil {
+		return []byte{}, nil
+	}
+
+	return message, nil
+}
+
+func (m Message) marshalTemplates(tmplLen int, message []byte) (offset int) {
+	offset = msgIpfixHeaderLength
 	if m.Header.Version == 0x09 {
 		offset = msgNFv9HeaderLength
 	}
@@ -774,13 +801,23 @@ func (s *Session) Marshal(m Message) ([]byte, error) {
 			}
 		}
 	}
+	return
 
+}
+
+type lookupFunc func(uint16) []TemplateFieldSpecifier
+
+func (m Message) marshalRecords(offset int, lu lookupFunc, message []byte) (err error) {
 	// Build data record section
 	// It's possible that there were multiple sets with alternating templates,
 	// e.g. set 0 used template 256, set 1 used template 300, set 2 used 256 again.
 	if len(m.DataRecords) > 0 {
 		currentTemplate := m.DataRecords[0].TemplateID
-		tpl := s.lookupTemplateFieldSpecifiers(currentTemplate)
+		tpl := lu(currentTemplate)
+		if tpl == nil {
+			err = ErrUnknownTemplate
+			return
+		}
 		setStart := offset // where the current set started
 		// initialize the first set header
 		// We only write the template ID now, since we won't be sure of length until later
@@ -795,14 +832,18 @@ func (s *Session) Marshal(m Message) ([]byte, error) {
 				// now set up for the next set
 				setStart = offset
 				currentTemplate = dr.TemplateID
-				tpl = s.lookupTemplateFieldSpecifiers(dr.TemplateID)
+				if tpl = lu(dr.TemplateID); tpl == nil {
+					err = ErrUnknownTemplate
+					return
+				}
 				// We only write the template ID now, since we won't be sure of length until later
 				binary.BigEndian.PutUint16(message[offset:offset+2], dr.TemplateID)
 				offset += 4
 			}
 			for i, field := range dr.Fields {
-				if i > len(tpl) {
-					return message, errors.New("too many fields for template")
+				if i >= len(tpl) {
+					err = ErrTooManyTemplates
+					return
 				}
 				// Handle variable-length fields
 				if tpl[i].Length == 0xffff {
@@ -828,8 +869,107 @@ func (s *Session) Marshal(m Message) ([]byte, error) {
 		if offset-setStart > setHeaderLength {
 			binary.BigEndian.PutUint16(message[setStart+2:setStart+4], uint16(offset-setStart))
 		}
+	}
+	return
+}
 
+func (m Message) lookupTemplateFieldSpec(tid uint16) []TemplateFieldSpecifier {
+	for _, tr := range m.TemplateRecords {
+		if tr.TemplateID == tid {
+			return tr.FieldSpecifiers
+		}
+	}
+	return nil
+}
+
+func marshalHeader(hdr MessageHeader, length, totalRecords uint16, buff []byte) {
+	// Populate the header
+	if hdr.Version == 0x0a {
+		binary.BigEndian.PutUint16(buff[:2], hdr.Version)
+		binary.BigEndian.PutUint16(buff[2:4], length)
+		binary.BigEndian.PutUint32(buff[4:8], hdr.ExportTime)
+		binary.BigEndian.PutUint32(buff[8:12], hdr.SequenceNumber)
+		binary.BigEndian.PutUint32(buff[12:16], hdr.DomainID)
+	} else {
+		binary.BigEndian.PutUint16(buff[:2], hdr.Version)
+		binary.BigEndian.PutUint16(buff[2:4], totalRecords)
+		binary.BigEndian.PutUint32(buff[4:8], hdr.SysUptime)
+		binary.BigEndian.PutUint32(buff[8:12], hdr.ExportTime)
+		binary.BigEndian.PutUint32(buff[12:16], hdr.SequenceNumber)
+		binary.BigEndian.PutUint32(buff[16:20], hdr.DomainID)
 	}
 
-	return message, nil
+}
+
+// Returns overall length of the message, the length of the template set, and
+// the length of the data set(s).
+func (m Message) calculateMarshalledLength() (int, int, int, error) {
+	var length int
+	var tmplLen, dataLen int
+	if m.Header.Version == 0x0a {
+		length += msgIpfixHeaderLength // there will always be a header
+	} else {
+		length += msgNFv9HeaderLength // there will always be a header
+	}
+	if len(m.TemplateRecords) > 0 {
+		// We will be creating a template set
+		tmplLen += setHeaderLength
+		for _, rec := range m.TemplateRecords {
+			// Each template record implies a record header
+			tmplLen += 4
+			for _, field := range rec.FieldSpecifiers {
+				if field.EnterpriseID == 0 {
+					tmplLen += 4
+				} else {
+					tmplLen += 8
+				}
+			}
+		}
+	}
+	if len(m.DataRecords) > 0 {
+		currentTemplate := m.DataRecords[0].TemplateID
+		tpl := m.lookupTemplateFieldSpecifiers(currentTemplate)
+		if tpl == nil {
+			return 0, 0, 0, ErrUnknownTemplate
+		}
+		dataLen += setHeaderLength
+		for _, dr := range m.DataRecords {
+			if dr.TemplateID != currentTemplate {
+				dataLen += setHeaderLength
+				if tpl = m.lookupTemplateFieldSpecifiers(dr.TemplateID); tpl == nil {
+					return 0, 0, 0, ErrUnknownTemplate
+				}
+				currentTemplate = dr.TemplateID
+			}
+			for i, field := range dr.Fields {
+				if i > len(tpl) {
+					return 0, 0, 0, ErrTooManyTemplates
+				}
+				// Handle variable-length fields
+				if tpl[i].Length == 0xffff {
+					if len(field) < 0xff {
+						dataLen += 1          // 1 byte for the length
+						dataLen += len(field) // and then the field itself
+					} else {
+						dataLen += 3          // 3 bytes for the length
+						dataLen += len(field) // and then the field itself
+					}
+				} else {
+					dataLen += int(tpl[i].Length)
+				}
+			}
+		}
+	}
+	length += tmplLen
+	length += dataLen
+	return length, tmplLen, dataLen, nil
+}
+
+func (m Message) lookupTemplateFieldSpecifiers(tid uint16) []TemplateFieldSpecifier {
+	for _, v := range m.TemplateRecords {
+		if v.TemplateID == tid {
+			return v.FieldSpecifiers
+		}
+	}
+	return nil
 }
