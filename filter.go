@@ -18,7 +18,6 @@ type Filter struct {
 	HeaderFilter
 	uint16Bitmask
 	baseEnabled bool
-	baseCount   uint
 	others      []otherFilter
 }
 
@@ -51,10 +50,7 @@ func (f *Filter) FilterHeader(did uint32, ver uint16) bool {
 
 func (f *Filter) Set(eid uint32, id uint16) {
 	if eid == 0 {
-		if !f.isset(id) {
-			f.set(id)
-			f.baseCount++
-		}
+		f.set(id)
 		f.baseEnabled = true
 		return
 	} else {
