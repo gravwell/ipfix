@@ -1,0 +1,39 @@
+# This workflow is designed to setup a golang workspace and execute the unit tests
+
+name: golang-testing
+
+on:
+  push:
+  pull_request:
+
+jobs:
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - run: echo "Executing on  ${{ runner.os }} due to ${{ github.event_name }}"
+    - run: echo "Branch is ${{ github.ref }} executing on  ${{ runner.os }} due to ${{ github.event_name }}"
+
+    - name: Checkout repo
+      uses: actions/checkout@v3
+
+    - name: Set up Go
+      uses: actions/setup-go@v3
+      with:
+        go-version: 1.20.7
+        cache: true
+
+    - name: Go Tidy
+      run: go mod tidy && git diff --exit-code
+
+    - name: Go Mod
+      run: go mod download
+
+    - name: Go Mod Verify
+      run: go mod verify
+
+    - name: Build
+      run: go test -v
+
+    - name: Final status
+      run: echo "Status is ${{ job.status }} 🚀"

@@ -214,7 +214,7 @@ func (w *Walker) handleDataRecord(r *Record, sh *setHeader, tpl []TemplateFieldS
 				if len(sl.bs) < 2 {
 					return ErrRead
 				}
-				l = int((uint16(sl.bs[0]) << 8) + uint16(sl.bs[1]))
+				l = int((uint16(sl.bs[0]) << 8) | uint16(sl.bs[1]))
 				sl.bs = sl.bs[2:]
 			}
 		}
