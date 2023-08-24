@@ -203,19 +203,32 @@ func (w *Walker) handleDataRecord(r *Record, sh *setHeader, tpl []TemplateFieldS
 	r.EndOfRecord = false
 
 	for i := range tpl {
-		if tpl[i].Length == 0xffff {
-			if lo = sl.Uint8(); lo < 0xff {
-				l = int(lo)
-			} else {
-				l = int(sl.Uint16())
+		if l = int(tpl[i].Length); l == 0xffff {
+			if len(sl.bs) == 0 {
+				return ErrRead
 			}
-		} else {
-			l = int(tpl[i].Length)
+			if lo = sl.bs[0]; lo < 0xff {
+				l = int(lo)
+				sl.bs = sl.bs[1:]
+			} else {
+				if len(sl.bs) < 2 {
+					return ErrRead
+				}
+				l = int((uint16(sl.bs[0]) << 8) | uint16(sl.bs[1]))
+				sl.bs = sl.bs[2:]
+			}
 		}
+		if l > len(sl.bs) {
+			return ErrRead
+		}
+		val = sl.bs[:l]
+		sl.bs = sl.bs[l:]
+		/* old code using this cut nonsense
 		val = sl.Cut(l)
 		if err = sl.Error(); err != nil {
 			return err
 		}
+		*/
 		if w.filtering && !w.f.IsSet(tpl[i].EnterpriseID, tpl[i].FieldID) {
 			continue //not looking at this item
 		}

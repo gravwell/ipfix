@@ -1,8 +1,6 @@
 package ipfix
 
-import (
 //"errors"
-)
 
 type HeaderFilter struct {
 	Version       uint16 //v9 or v10
@@ -74,7 +72,7 @@ func (f *Filter) IsSet(eid uint32, id uint16) bool {
 		if !f.baseEnabled {
 			return true
 		}
-		return f.isset(id)
+		return (f.uint16Bitmask[id>>3] & byte(1<<byte(id&0x7))) != 0
 	} else {
 		for i := range f.others {
 			if f.others[i].eid == eid {
@@ -100,24 +98,22 @@ func (f *Filter) Clear(eid uint32, id uint16) {
 	}
 }
 
-type uint16Bitmask struct {
-	bits [0x2000]byte
-}
+type uint16Bitmask [0x2000]byte
 
 func (u *uint16Bitmask) set(v uint16) {
 	mask := byte(1 << byte(v&0x7))
 	off := v >> 3
-	u.bits[off] |= mask
+	(*u)[off] |= mask
 }
 
 func (u *uint16Bitmask) clear(v uint16) {
 	mask := byte(1 << byte(v&0x7))
 	off := v >> 3
-	u.bits[off] &= (mask ^ 0xff)
+	(*u)[off] &= (mask ^ 0xff)
 }
 
 func (u *uint16Bitmask) isset(v uint16) bool {
 	mask := byte(1 << byte(v&0x7))
 	off := v >> 3
-	return (u.bits[off] & mask) != 0
+	return ((*u)[off] & mask) != 0
 }
