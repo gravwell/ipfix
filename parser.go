@@ -36,6 +36,10 @@ var ErrUnknownTemplate = errors.New("unknown template")
 // ErrTooManyTemplates is when template records don't match the specifier
 var ErrTooManyTemplates = errors.New("too many fields for template")
 
+// ErrFieldOverflow is when the Marshaller detects that a field overflows the a message
+// this is typically due to some corruption in a field and/or template spec
+var ErrFieldOverflow = errors.New("encoded field overflows message")
+
 // A Message is the top level construct representing an IPFIX message. A well
 // formed message contains one or more sets of data or template information.
 type Message struct {
@@ -860,6 +864,11 @@ func (m Message) marshalRecords(offset int, lu lookupFunc, message []byte) (err 
 						offset += len(field)
 					}
 				} else {
+					//check if the message buffer has enough room for this copy
+					if (len(field) + offset) > cap(message) {
+						err = ErrFieldOverflow
+						return
+					}
 					copy(message[offset:offset+len(field)], field)
 					offset += len(field)
 				}
